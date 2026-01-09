@@ -1,0 +1,8 @@
+{
+  "name": "磯辺の海は、ホモソーシャルな香りがする。",
+  "description": "千葉県立磯辺高校を舞台にした、野獣先輩一派の都市伝説を追うコミカルなマルチエンディング・サウンドノベル。",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
