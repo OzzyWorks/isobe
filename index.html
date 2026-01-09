@@ -3,48 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>磯辺の海は、ホモソーシャルな香りがする。</title>
+    <title>境界線のマリーナ - 磯辺高サスペンス</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
-    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <style>
-        body { background-color: #000; margin: 0; padding: 0; overflow: hidden; font-family: 'M PLUS Rounded 1c', sans-serif; color: white; }
-        .pixel-font { font-family: 'DotGothic16', sans-serif; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slide-up { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 0.8s ease-out forwards; }
-        .animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .text-glow { text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
-        .choice-new { box-shadow: 0 0 20px rgba(234, 179, 8, 0.3); border-color: rgba(234, 179, 8, 0.6); }
+        body { background-color: #000; margin: 0; color: white; overflow: hidden; font-family: sans-serif; }
+        .fade-in { animation: fadeIn 0.8s ease-in forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .choice-btn { transition: all 0.3s; border: 1px solid #555; background: rgba(255,255,255,0.1); }
+        .choice-btn:hover { background: rgba(0, 74, 124, 0.8); border-color: #00c3ff; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useMemo } = React;
+        const { useState } = React;
 
-        // --- Constants (SCENARIOなどは元のコードと同じため省略せずそのまま保持してください) ---
-        const STATIC_IMAGES = {
-            CLUB_ROOM: "https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?auto=format&fit=crop&q=80&w=1200",
-            HARBOR: "https://images.unsplash.com/photo-1516939884455-1445c8652f83?auto=format&fit=crop&q=80&w=1200",
-            WATARU: "https://images.unsplash.com/photo-1529665253569-6d01c0eaf7b6?auto=format&fit=crop&q=80&w=400",
-            GOU: "https://images.unsplash.com/photo-1488161628813-04466f872be2?auto=format&fit=crop&q=80&w=400",
-            MISAKI: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&q=80&w=400",
-            SHADOW: "https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=400"
-        };
-
+        // --- シナリオデータ ---
         const SCENARIO = {
-            /* ... (ここに元のコードのSCENARIOデータをすべて貼り付け) ... */
+            start: {
+                name: "ナレーション",
+                text: "2月、千葉市美浜区。磯辺高校を吹き抜ける風は、暴力的なほどに冷たい。君はヨットハーバーに立っていた。",
+                image: "https://images.unsplash.com/photo-1516939884455-1445c8652f83?auto=format&fit=crop&q=80&w=1200",
+                next: "scene1"
+            },
+            scene1: {
+                name: "新聞部・ハル",
+                text: "「ねえ、聞いた？ 第3桟橋にまた『片方のローファー』が置かれてたんだって。不気味だと思わない？」",
+                image: "https://images.unsplash.com/photo-1529665253569-6d01c0eaf7b6?auto=format&fit=crop&q=80&w=400",
+                choices: [
+                    { text: "「詳しく調べてみよう」", next: "investigate" },
+                    { text: "「関わらないほうがいい」", next: "ignore" }
+                ]
+            },
+            investigate: {
+                name: "ハル",
+                text: "「やっぱりそう言うと思った。行こう、マリーナの奥に何かあるはずよ」",
+                image: "https://images.unsplash.com/photo-1516939884455-1445c8652f83?auto=format&fit=crop&q=80&w=1200",
+                next: "ending_check"
+            },
+            ignore: {
+                name: "ハル",
+                text: "「……そうね。深入りすると、この海の底に引きずり込まれるかもしれないものね」",
+                image: "https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=400",
+                next: "ending_check"
+            },
+            ending_check: {
+                name: "???",
+                text: "背後に、誰かの気配を感じた。磯辺の海は、すべてを飲み込もうとしている。（デモ版終了）",
+                image: "https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=400",
+                next: "start"
+            }
         };
 
-        // --- App Component (ここも元のロジックを保持) ---
         const App = () => {
-            // ... (元のAppコンポーネントの中身をそのままここに) ...
+            const [sceneId, setSceneId] = useState('start');
+            const scene = SCENARIO[sceneId];
+
+            const handleNext = () => {
+                if (scene.next) setSceneId(scene.next);
+            };
+
+            return (
+                <div className="relative w-full h-screen flex items-center justify-center bg-black">
+                    {/* 背景画像 */}
+                    <img 
+                        src={scene.image} 
+                        className="absolute w-full h-full object-cover opacity-50 fade-in" 
+                        key={sceneId}
+                    />
+                    
+                    {/* メッセージウィンドウ */}
+                    <div className="absolute bottom-10 w-11/12 max-w-4xl bg-black/80 border border-blue-900 p-6 rounded-lg fade-in" onClick={!scene.choices ? handleNext : undefined}>
+                        {scene.name && <div className="text-blue-400 font-bold mb-2 text-sm">【{scene.name}】</div>}
+                        <div className="text-lg leading-relaxed">{scene.text}</div>
+                        
+                        {!scene.choices && (
+                            <div className="text-right text-xs text-blue-500 mt-4 animate-pulse">▼ クリックで進む</div>
+                        )}
+
+                        {/* 選択肢 */}
+                        {scene.choices && (
+                            <div className="mt-6 flex flex-col gap-3">
+                                {scene.choices.map((c, i) => (
+                                    <button 
+                                        key={i}
+                                        onClick={() => setSceneId(c.next)}
+                                        className="choice-btn w-full p-3 rounded text-left pl-6"
+                                    >
+                                        {c.text}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
