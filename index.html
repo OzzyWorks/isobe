@@ -1,38 +1,372 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<link rel="apple-touch-icon" href="ojibot.jpg">
+<link rel="icon" type="image/jpeg" href="ojibot.jpg">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="おじbot管理">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>磯辺の海は、ホモソーシャルな香りがする。</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>おじbotデータ管理</title>
     <style>
+        :root {
+            --ios-blue: #007AFF;
+            --ios-bg: #F2F2F7;
+            --ios-card: #FFFFFF;
+            --ios-sep: #C6C6C8;
+            --ios-danger: #FF3B30;
+        }
+
         body {
-            background-color: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--ios-bg);
             margin: 0;
-            padding: 0;
+            padding-bottom: 100px;
+            color: #000;
+        }
+
+        /* ヘッダー */
+        .header {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 10px 16px;
+            border-bottom: 0.5px solid var(--ios-sep);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .header-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid var(--ios-sep);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        /* 読み込み中オーバーレイ */
+        #loader-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            z-index: 2000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--ios-sep);
+            border-top: 4px solid var(--ios-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 追加ボタン（浮遊） */
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            background-color: var(--ios-blue);
+            color: white;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: none;
+            z-index: 99;
+        }
+
+        /* リスト表示 */
+        .list-container {
+            padding: 12px;
+        }
+
+        .card {
+            background: var(--ios-card);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card-date {
+            font-size: 11px;
+            color: var(--ios-blue);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .card-info1 {
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
             overflow: hidden;
-            font-family: 'M PLUS Rounded 1c', sans-serif;
+            text-overflow: ellipsis;
         }
-        .pixel-font {
-            font-family: 'DotGothic16', sans-serif;
+
+        .card-info2 {
+            font-size: 13px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
+
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-action {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+        }
+        .btn-edit { background: #E8F2FF; color: var(--ios-blue); }
+        .btn-delete { background: #FFEBEA; color: var(--ios-danger); }
+
+        /* モーダル */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: flex-end;
+        }
+
+        .modal-content {
+            background: var(--ios-card);
+            width: 100%;
+            border-radius: 15px 15px 0 0;
+            padding: 20px;
+            box-sizing: border-box;
+            animation: slideUp 0.2s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .input-group { margin-bottom: 12px; }
+        label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--ios-sep);
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            background: #F9F9F9;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-save { flex: 2; background: var(--ios-blue); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 600; }
+        .btn-cancel { flex: 1; background: #E5E5EA; color: #000; border: none; padding: 14px; border-radius: 10px; }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
-    <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+
+<div id="loader-overlay">
+    <div class="spinner"></div>
+    <div style="font-weight: 600; color: #555;">読み込み中...</div>
+</div>
+
+<div class="header">
+    <img src="ojibot.jpg" alt="icon" class="header-icon">
+    <h1>おじbotデータ管理</h1>
+</div>
+
+<div id="list-container" class="list-container"></div>
+
+<button class="fab" onclick="openModal()">+</button>
+
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-title" style="margin: 0 0 15px 0">新規追加</h3>
+        <input type="hidden" id="edit-index">
+        <div class="input-group">
+            <label>日付</label>
+            <input type="date" id="date">
+        </div>
+        <div class="input-group">
+            <label>情報1</label>
+            <input type="text" id="info1" placeholder="内容を入力">
+        </div>
+        <div class="input-group">
+            <label>情報2</label>
+            <input type="text" id="info2" placeholder="詳細を入力">
+        </div>
+        <div class="modal-buttons">
+            <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+            <button class="btn-save" onclick="saveData()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzwzKhAZEnmYKnkRP9o9fOPFOQPC9etr486OsXBa_nrdADhtMbeVT9v4gZwih8oB7Rr/exec";
+
+    window.onload = loadData;
+
+    function showLoader() { document.getElementById("loader-overlay").style.display = "flex"; }
+    function hideLoader() { document.getElementById("loader-overlay").style.display = "none"; }
+
+    function formatDate(dateStr) {
+        if (!dateStr || dateStr === "" || dateStr === "null") return null;
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return null;
+        const y = date.getFullYear();
+        const m = date.getMonth() + 1;
+        const d = date.getDate();
+        const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+        const day = dayNames[date.getDay()];
+        return `${y}年${m}月${d}日(${day})`;
+    }
+
+    function toISODate(dateStr) {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return "";
+        const offset = d.getTimezoneOffset() * 60000;
+        return (new Date(d.getTime() - offset)).toISOString().split('T')[0];
+    }
+
+    async function loadData() {
+        showLoader();
+        try {
+            const res = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "read" })
+            });
+            const data = await res.json();
+            renderList(data);
+        } catch (e) {
+            alert("データの取得に失敗しました");
+        }
+        hideLoader();
+    }
+
+    function renderList(data) {
+        const container = document.getElementById("list-container");
+        container.innerHTML = "";
+        data.forEach((row, index) => {
+            // A列(日付)が存在しない、または空文字の場合はスキップ
+            const formattedDate = formatDate(row[0]);
+            if (!row[0] || formattedDate === null) return;
+
+            const card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML = `
+                <div class="card-content">
+                    <div class="card-date">${formattedDate}</div>
+                    <div class="card-info1">${row[1] || ''}</div>
+                    <div class="card-info2">${row[2] || ''}</div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-action btn-edit" onclick="editRow(${index}, '${row[0]}', '${row[1]}', '${row[2]}')">編集</button>
+                    <button class="btn-action btn-delete" onclick="deleteRow(${index})">削除</button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    async function saveData() {
+        const index = document.getElementById("edit-index").value;
+        const payload = {
+            action: index === "" ? "create" : "update",
+            index: parseInt(index),
+            date: document.getElementById("date").value,
+            info1: document.getElementById("info1").value,
+            info2: document.getElementById("info2").value
+        };
+        
+        closeModal();
+        showLoader();
+        await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
+        loadData();
+    }
+
+    function openModal() {
+        document.getElementById("modal-title").innerText = "新規追加";
+        clearForm();
+        document.getElementById("date").value = new Date().toISOString().split('T')[0];
+        document.getElementById("modal").style.display = "flex";
+    }
+
+    function closeModal() {
+        document.getElementById("modal").style.display = "none";
+    }
+
+    function editRow(index, date, i1, i2) {
+        document.getElementById("modal-title").innerText = "データを編集";
+        document.getElementById("edit-index").value = index;
+        document.getElementById("date").value = toISODate(date);
+        document.getElementById("info1").value = i1;
+        document.getElementById("info2").value = (i2 === 'undefined' || i2 === 'null') ? '' : i2;
+        document.getElementById("modal").style.display = "flex";
+    }
+
+    async function deleteRow(index) {
+        if (!confirm("この項目を削除してもよろしいですか？")) return;
+        showLoader();
+        await fetch(GAS_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "delete", index: index })
+        });
+        loadData();
+    }
+
+    function clearForm() {
+        document.getElementById("edit-index").value = "";
+        document.getElementById("date").value = "";
+        document.getElementById("info1").value = "";
+        document.getElementById("info2").value = "";
+    }
+</script>
 </body>
 </html>
