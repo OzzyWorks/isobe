@@ -40,7 +40,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
+        const { useState, useEffect, useCallback, useRef } = React;
 
         // Static Images
         const STATIC_IMAGES = {
@@ -50,6 +50,11 @@
             GOU: "https://images.unsplash.com/photo-1488161628813-04466f872be2?auto=format&fit=crop&q=80&w=400",
             MISAKI: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&q=80&w=400",
             SHADOW: "https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=400"
+        };
+
+        // BGM URLs (著作権フリー音源 from Pixabay)
+        const BGM_URLS = {
+            MAIN: "https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3",
         };
 
         const getStaticImage = (key) => {
@@ -367,11 +372,29 @@
                 character: 'none',
                 isEnding: true,
                 name: 'Ending: 磯辺の風、ただの風'
+            },
+            // 特別エンディング（全エンディングクリア後のみ表示）
+            ending_true_final: {
+                id: 'ending_true_final',
+                text: '全てのエンディングを見届けた君へ。磯辺の海は、君の勇気を称える。そして、彼が現れた。',
+                background: IMAGE_PROMPTS.HARBOR,
+                character: 'shadow',
+                isEnding: true,
+                isTrueFinal: true,
+                name: 'TRUE ENDING: 野獣先輩、降臨'
             }
         };
 
         // Main App Component
         const App = () => {
+            // BGM管理
+            const bgmRef = useRef(null);
+            const [isBgmPlaying, setIsBgmPlaying] = useState(false);
+            const [bgmEnabled, setBgmEnabled] = useState(() => {
+                const saved = localStorage.getItem('bgm_enabled');
+                return saved === null ? true : saved === 'true';
+            });
+
             // Load persistent data
             const [clearedEndings, setClearedEndings] = useState(() => {
                 const saved = localStorage.getItem('cleared_endings');
@@ -395,6 +418,49 @@
             const [displayedText, setDisplayedText] = useState('');
             const [isLogOpen, setIsLogOpen] = useState(false);
             const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+            const [showTrueFinal, setShowTrueFinal] = useState(false);
+
+            // BGM制御
+            useEffect(() => {
+                if (bgmRef.current) {
+                    bgmRef.current.volume = 0.3;
+                    bgmRef.current.loop = true;
+                }
+            }, []);
+
+            const toggleBgm = () => {
+                const newState = !bgmEnabled;
+                setBgmEnabled(newState);
+                localStorage.setItem('bgm_enabled', newState);
+                
+                if (newState && bgmRef.current) {
+                    bgmRef.current.play().catch(e => console.log('BGM play failed:', e));
+                    setIsBgmPlaying(true);
+                } else if (bgmRef.current) {
+                    bgmRef.current.pause();
+                    setIsBgmPlaying(false);
+                }
+            };
+
+            // 初回クリックでBGM開始
+            useEffect(() => {
+                const startBgm = () => {
+                    if (bgmEnabled && bgmRef.current && !isBgmPlaying) {
+                        bgmRef.current.play().catch(e => console.log('BGM play failed:', e));
+                        setIsBgmPlaying(true);
+                    }
+                };
+                document.addEventListener('click', startBgm, { once: true });
+                return () => document.removeEventListener('click', startBgm);
+            }, [bgmEnabled, isBgmPlaying]);
+
+            // 全エンディングクリアチェック
+            useEffect(() => {
+                const normalEndings = Object.values(SCENARIO).filter(s => s.isEnding && !s.isTrueFinal);
+                if (clearedEndings.length === normalEndings.length && normalEndings.length === 7) {
+                    setShowTrueFinal(true);
+                }
+            }, [clearedEndings]);
 
             // Safe scene retrieval
             const currentScene = SCENARIO[gameState.currentSceneId] || SCENARIO['start'];
@@ -422,8 +488,10 @@
                 setDisplayedText('');
                 let i = 0;
                 const interval = setInterval(() => {
-                    setDisplayedText((prev) => prev + text.charAt(i));
-                    i++;
+                    if (i < text.length) {
+                        setDisplayedText((prev) => prev + text.charAt(i));
+                        i++;
+                    }
                     if (i >= text.length) {
                         clearInterval(interval);
                         setIsTyping(false);
@@ -483,8 +551,31 @@
                 });
             };
 
+            // 特別エンディングの音声再生
+            const playFinalVoice = () => {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance('じゃけん、夜食べに行きましょうね');
+                    utterance.lang = 'ja-JP';
+                    utterance.rate = 0.9;
+                    utterance.pitch = 0.8;
+                    window.speechSynthesis.speak(utterance);
+                }
+            };
+
+            // 特別エンディング到達時
+            useEffect(() => {
+                if (currentScene.isTrueFinal) {
+                    setTimeout(() => {
+                        playFinalVoice();
+                    }, 2000);
+                }
+            }, [currentScene.isTrueFinal]);
+
             return (
                 <div className="relative w-screen h-screen overflow-hidden bg-black text-white select-none">
+                    {/* BGM Audio Element */}
+                    <audio ref={bgmRef} src={BGM_URLS.MAIN} />
+
                     {/* Background */}
                     <div 
                         className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
@@ -511,6 +602,9 @@
                             <div className="flex gap-2 mt-2">
                                 <button onClick={() => setIsLogOpen(true)} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-xs border border-white/20 transition-all">LOG</button>
                                 <button onClick={() => setIsGalleryOpen(true)} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-xs border border-white/20 transition-all">GALLERY ({clearedEndings.length}/7)</button>
+                                <button onClick={toggleBgm} className={`px-3 py-1 rounded text-xs border border-white/20 transition-all ${bgmEnabled ? 'bg-yellow-500/30 hover:bg-yellow-500/40' : 'bg-white/10 hover:bg-white/20'}`}>
+                                    🎵 {bgmEnabled ? 'ON' : 'OFF'}
+                                </button>
                             </div>
                         </div>
                         
@@ -550,7 +644,19 @@
 
                         {/* Reset */}
                         {currentScene.isEnding && (
-                            <div className="flex justify-center animate-slide-up">
+                            <div className="flex justify-center animate-slide-up flex-col gap-4 items-center">
+                                {currentScene.isTrueFinal && (
+                                    <div className="text-center mb-4 animate-pulse">
+                                        <p className="text-4xl font-black text-yellow-400 mb-2">🎊 TRUE ENDING 🎊</p>
+                                        <p className="text-xl text-yellow-200">野獣先輩「じゃけん、夜食べに行きましょうね」</p>
+                                        <button 
+                                            onClick={playFinalVoice}
+                                            className="mt-4 px-6 py-3 bg-red-600 rounded-lg hover:bg-red-700 transition-all"
+                                        >
+                                            🔊 セリフを再生
+                                        </button>
+                                    </div>
+                                )}
                                 <button
                                     onClick={resetGame}
                                     className="px-10 py-5 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-full text-2xl font-black shadow-[0_0_30px_rgba(37,99,235,0.5)] hover:brightness-110 active:scale-95 transition-all"
@@ -609,8 +715,25 @@
                                 <h2 className="text-3xl font-black pixel-font text-blue-400">ENDING GALLERY</h2>
                                 <button onClick={() => setIsGalleryOpen(false)} className="text-5xl font-light hover:text-red-500 transition-colors">&times;</button>
                             </div>
+                            
+                            {/* 特別エンディングボタン */}
+                            {showTrueFinal && (
+                                <div className="mb-6 p-6 bg-gradient-to-r from-yellow-500/20 to-red-500/20 border-2 border-yellow-500 rounded-2xl animate-pulse">
+                                    <p className="text-2xl font-black text-yellow-400 mb-4">🎉 全エンディング達成！</p>
+                                    <button 
+                                        onClick={() => {
+                                            setIsGalleryOpen(false);
+                                            handleChoice('ending_true_final');
+                                        }}
+                                        className="w-full px-8 py-4 bg-gradient-to-r from-red-600 to-pink-600 rounded-xl text-xl font-black shadow-2xl hover:scale-105 transition-all"
+                                    >
+                                        🔥 TRUE ENDING を見る 🔥
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
-                                {Object.values(SCENARIO).filter(s => s.isEnding).map((end, idx) => {
+                                {Object.values(SCENARIO).filter(s => s.isEnding && !s.isTrueFinal).map((end, idx) => {
                                     const isCleared = clearedEndings.includes(end.name);
                                     return (
                                         <div key={idx} className={`p-6 rounded-2xl border-2 transition-all ${isCleared ? 'bg-white/5 border-yellow-500/50 shadow-lg' : 'bg-black border-white/5 opacity-40'}`}>
